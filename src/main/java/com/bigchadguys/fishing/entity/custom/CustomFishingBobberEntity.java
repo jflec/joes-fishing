@@ -14,11 +14,11 @@ import net.minecraft.world.entity.projectile.FishingHook;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
 
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.Random;
+
 
 public class CustomFishingBobberEntity extends FishingHook {
     private boolean minigameTriggered = false;
-    private boolean minigameActive = false;
     private final int rodTier;
     private int ticksInWater = 0;
     private final int triggerTicks;
@@ -26,7 +26,7 @@ public class CustomFishingBobberEntity extends FishingHook {
     public CustomFishingBobberEntity(Player player, Level level, int luck, int lureSpeed, int rodTier) {
         super(player, level, luck, lureSpeed);
         this.rodTier = rodTier;
-        this.triggerTicks = ThreadLocalRandom.current().nextInt(40, 81);
+        this.triggerTicks = new Random().nextInt(40, 81);
     }
 
     private boolean isOpenWaterEnvironment() {
@@ -75,7 +75,6 @@ public class CustomFishingBobberEntity extends FishingHook {
                     PacketDistributor.sendToPlayer(serverPlayer, new RodTierData(rodTier));
                     serverPlayer.openMenu(new FishingMinigameMenuProvider());
                     minigameTriggered = true;
-                    minigameActive = true;
                 }
             }
         }
