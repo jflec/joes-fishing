@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "fishing:block/fish_trap"
+    },
+    "facing=south": {
+      "model": "fishing:block/fish_trap",
+      "y": 180
+    },
+    "facing=east": {
+      "model": "fishing:block/fish_trap",
+      "y": 90
+    },
+    "facing=west": {
+      "model": "fishing:block/fish_trap",
+      "y": 270
+    }
+  }
+}

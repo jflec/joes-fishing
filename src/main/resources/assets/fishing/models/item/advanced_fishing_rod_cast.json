@@ -1,0 +1,6 @@
+{
+  "parent": "fishing:item/advanced_fishing_rod",
+  "textures": {
+    "layer0": "fishing:item/advanced_fishing_rod_cast"
+  }
+}

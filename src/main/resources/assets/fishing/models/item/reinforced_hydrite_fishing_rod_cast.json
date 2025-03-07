@@ -1,0 +1,6 @@
+{
+  "parent": "fishing:item/reinforced_hydrite_fishing_rod",
+  "textures": {
+    "layer0": "fishing:item/reinforced_hydrite_fishing_rod_cast"
+  }
+}

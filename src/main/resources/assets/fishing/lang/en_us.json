@@ -1,0 +1,20 @@
+{
+  "itemGroup.fishing.fishing_tab": "Joe's Fishing",
+
+  "item.fishing.worm": "Worm",
+  "item.fishing.gummy_worm": "Gummy Worm",
+  "item.fishing.treasure_chest": "Treasure Chest",
+  "item.fishing.beginner_fishing_rod": "Beginner Fishing Rod",
+  "item.fishing.intermediate_fishing_rod": "Intermediate Fishing Rod",
+  "item.fishing.advanced_fishing_rod": "Advanced Fishing Rod",
+  "item.fishing.professional_fishing_rod": "Professional Fishing Rod",
+  "item.fishing.expert_fishing_rod": "Expert Fishing Rod",
+  "item.fishing.hydrite_fishing_rod": "Hydrite Fishing Rod",
+  "item.fishing.reinforced_hydrite_fishing_rod": "Reinforced Hydrite Fishing Rod",
+
+  "block.fishing.fish_trap": "Fish Trap",
+
+
+  "screen.fishing.fishing_minigame": "Fishing Minigame"
+
+}
