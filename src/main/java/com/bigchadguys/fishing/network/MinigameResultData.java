@@ -12,11 +12,9 @@ public record MinigameResultData(int bobberId, boolean success) implements Custo
             new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath("fishing", "minigame_result"));
 
     public static final StreamCodec<ByteBuf, MinigameResultData> CODEC =
-            StreamCodec.composite(
-                    ByteBufCodecs.VAR_INT, MinigameResultData::bobberId,
+            StreamCodec.composite(ByteBufCodecs.VAR_INT, MinigameResultData::bobberId,
                     ByteBufCodecs.BOOL, MinigameResultData::success,
-                    MinigameResultData::new
-            );
+                    MinigameResultData::new);
 
     @Override
     public CustomPacketPayload.@NotNull Type<? extends CustomPacketPayload> type() {

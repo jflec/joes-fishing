@@ -17,9 +17,7 @@ public class ModItemModelProvider extends ItemModelProvider {
         basicItem(ModItems.GUMMY_WORM.get());
         basicItem(ModItems.TREASURE_CHEST.get());
         basicItem(ModItems.HYDRITE_TREASURE_CHEST.get());
-
         basicItem(ModItems.INTERMEDIATE_MATERIAL.get());
         basicItem(ModItems.FISHING_LICENSE.get());
-
     }
 }

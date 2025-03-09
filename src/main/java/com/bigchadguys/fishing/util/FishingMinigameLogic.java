@@ -52,22 +52,15 @@ public class FishingMinigameLogic {
         this.difficultyMultiplier = difficultyMultiplier;
         this.treasureVisible = treasureVisible;
         this.targetSpeed = 0.25f * difficultyMultiplier;
-        hookXPos = PROGRESS_BAR_WIDTH * 0.25f;
-        hookTime = 0f;
-        bonusProgress = INITIAL_BONUS_PROGRESS;
-        hasActivatedHook = false;
-        hasTouchedFish = false;
-        isButtonHeld = false;
-        treasureActive = false;
-        treasureClaimed = false;
-        treasureHoverTime = 0f;
-        chestVerticalAnimTime = 0f;
-        scaledHookSpeed = BASE_HOOK_SPEED * (1 + (rodTier - 1) * 0.1f);
-        scaledBonusRate = BONUS_RATE * (1 + (rodTier - 1) * 0.1f);
-        scaledChestHoverThreshold = TREASURE_HOVER_THRESHOLD / (1 + (rodTier - 1) * 0.1f);
-        currentTargetPos = PROGRESS_BAR_WIDTH * 0.75f;
+        this.hookXPos = PROGRESS_BAR_WIDTH * 0.25f;
+        this.hookTime = 0f;
+        this.bonusProgress = INITIAL_BONUS_PROGRESS;
+        this.scaledHookSpeed = BASE_HOOK_SPEED * (1 + (rodTier - 1) * 0.1f);
+        this.scaledBonusRate = BONUS_RATE * (1 + (rodTier - 1) * 0.1f);
+        this.scaledChestHoverThreshold = TREASURE_HOVER_THRESHOLD / (1 + (rodTier - 1) * 0.1f);
+        this.currentTargetPos = PROGRESS_BAR_WIDTH * 0.75f;
         setNewTargetGoal();
-        cachedSinHookTime = (float) Math.sin(hookTime);
+        this.cachedSinHookTime = (float) Math.sin(hookTime);
     }
 
     private void setNewTargetGoal() {
@@ -75,20 +68,18 @@ public class FishingMinigameLogic {
         float maxPos = PROGRESS_BAR_WIDTH - fishWidth;
         targetGoalPos = random.nextFloat() * maxPos;
         float distance = Math.abs(targetGoalPos - currentTargetPos);
-        totalInterpolationTicks = (int) Math.ceil(distance / targetSpeed);
-        if (totalInterpolationTicks < 1) {
-            totalInterpolationTicks = 1;
-        }
+        totalInterpolationTicks = Math.max(1, (int) Math.ceil(distance / targetSpeed));
         interpolationTicksLeft = totalInterpolationTicks;
     }
 
     public void tick() {
         hookTime += VERTICAL_OSCILLATION_SPEED;
         cachedSinHookTime = (float) Math.sin(hookTime);
+
         if (hasActivatedHook) {
             hookXPos += isButtonHeld ? scaledHookSpeed : -scaledHookSpeed;
-            float hookMax = PROGRESS_BAR_WIDTH - HOOK_WIDTH;
-            hookXPos = Math.max(0f, Math.min(hookXPos, hookMax));
+            hookXPos = Math.max(0f, Math.min(hookXPos, PROGRESS_BAR_WIDTH - HOOK_WIDTH));
+
             boolean fishCollision = hookXPos < currentTargetPos + fishWidth && hookXPos + HOOK_WIDTH > currentTargetPos;
             if (fishCollision) {
                 bonusProgress = Math.min(bonusProgress + scaledBonusRate, 1.0f);
@@ -96,28 +87,32 @@ public class FishingMinigameLogic {
                 if (treasureVisible && !treasureActive) {
                     treasureActive = true;
                     treasureChestX = random.nextInt(PROGRESS_BAR_WIDTH - CHEST_WIDTH + 1);
-                    int targetYOffset = (int)(((cachedSinHookTime + 1) / 2) * 6);
-                    treasureChestY = HOOK_TRACK_OFFSET_Y + targetYOffset + CHEST_Y_OFFSET;
+                    treasureChestY = HOOK_TRACK_OFFSET_Y + ((int) (((cachedSinHookTime + 1) / 2) * 6)) + CHEST_Y_OFFSET;
                 }
             } else if (hasTouchedFish) {
                 bonusProgress = Math.max(bonusProgress - BONUS_DECREASE_RATE, 0f);
             }
         }
+
         if (interpolationTicksLeft > 0) {
-            float t = (float)(totalInterpolationTicks - interpolationTicksLeft + 1) / totalInterpolationTicks;
+            float t = (float) (totalInterpolationTicks - interpolationTicksLeft + 1) / totalInterpolationTicks;
             currentTargetPos = targetStartPos + t * (targetGoalPos - targetStartPos);
             interpolationTicksLeft--;
         } else {
             setNewTargetGoal();
         }
+
         chestVerticalAnimTime += 0.05f;
+
         if (treasureActive && !treasureClaimed) {
-            int verticalOffset = (int)(Math.sin(chestVerticalAnimTime) * VERTICAL_BOB_AMPLITUDE);
+            int verticalOffset = (int) (Math.sin(chestVerticalAnimTime) * VERTICAL_BOB_AMPLITUDE);
             int hookScreenX = HOOK_TRACK_OFFSET_X + (int) hookXPos;
-            int hookYOffset = (int)(((cachedSinHookTime + 1) / 2) * 4) * -1;
+            int hookYOffset = (int) (((cachedSinHookTime + 1) / 2) * -4);
             int hookScreenY = HOOK_TRACK_OFFSET_Y + hookYOffset;
+
             if (hookScreenX < treasureChestX + CHEST_WIDTH && hookScreenX + HOOK_WIDTH > treasureChestX &&
-                    hookScreenY < treasureChestY + verticalOffset + CHEST_HEIGHT && hookScreenY + CHEST_HEIGHT > treasureChestY + verticalOffset) {
+                    hookScreenY < treasureChestY + verticalOffset + CHEST_HEIGHT &&
+                    hookScreenY + CHEST_HEIGHT > treasureChestY + verticalOffset) {
                 treasureHoverTime++;
                 if (treasureHoverTime >= scaledChestHoverThreshold) {
                     treasureClaimed = true;
@@ -137,8 +132,7 @@ public class FishingMinigameLogic {
     }
 
     public int getHookScreenY() {
-        int hookYOffset = (int)(((cachedSinHookTime + 1) / 2) * 4) * -1;
-        return HOOK_TRACK_OFFSET_Y + hookYOffset;
+        return HOOK_TRACK_OFFSET_Y + (int) (((cachedSinHookTime + 1) / 2) * -4);
     }
 
     public int getCurrentTargetX() {
@@ -146,6 +140,6 @@ public class FishingMinigameLogic {
     }
 
     public int getCurrentTargetYOffset() {
-        return (int)(((cachedSinHookTime + 1) / 2) * 6);
+        return (int) (((cachedSinHookTime + 1) / 2) * 6);
     }
 }

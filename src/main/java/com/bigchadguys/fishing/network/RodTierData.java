@@ -12,11 +12,7 @@ public record RodTierData(int rodTier) implements CustomPacketPayload {
             new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath("fishing", "rod_tier"));
 
     public static final StreamCodec<ByteBuf, RodTierData> CODEC =
-            StreamCodec.composite(
-                    ByteBufCodecs.VAR_INT,
-                    RodTierData::rodTier,
-                    RodTierData::new
-            );
+            StreamCodec.composite(ByteBufCodecs.VAR_INT, RodTierData::rodTier, RodTierData::new);
 
     @Override
     public CustomPacketPayload.@NotNull Type<? extends CustomPacketPayload> type() {

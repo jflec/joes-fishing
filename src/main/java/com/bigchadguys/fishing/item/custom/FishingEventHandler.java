@@ -1,32 +1,35 @@
 package com.bigchadguys.fishing.item.custom;
 
-import com.bigchadguys.fishing.JoesFishing;
+import com.bigchadguys.fishing.capability.FishingStats;
+import com.bigchadguys.fishing.capability.FishingStatsCapability;
 import net.minecraft.ChatFormatting;
-import net.minecraft.core.NonNullList;
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.entity.player.ItemFishedEvent;
+import net.minecraft.world.level.storage.loot.BuiltInLootTables;
+import net.minecraft.world.level.storage.loot.LootParams;
+import net.minecraft.world.level.storage.loot.LootTable;
+import net.minecraft.world.level.storage.loot.parameters.LootContextParamSets;
+import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
 
 import java.util.Set;
+import java.util.function.Consumer;
 
 import static com.bigchadguys.fishing.data.ModDataComponents.FISH_RARITY;
 
-@EventBusSubscriber(modid = JoesFishing.MOD_ID)
 public class FishingEventHandler {
-
     private static final RandomSource RANDOM = RandomSource.create();
-
     private static final Set<FishRarity> BROADCAST_RARITIES = Set.of(FishRarity.TRANSCENDENT, FishRarity.DIVINE, FishRarity.MYTHICAL, FishRarity.CELESTIAL, FishRarity.ETERNAL);
-
     private static final java.util.Map<FishRarity, String> FISH_RARITY_ODDS = java.util.Map.of(
             FishRarity.TRANSCENDENT, "1 in 25,000",
             FishRarity.DIVINE, "1 in 50,000",
@@ -35,100 +38,118 @@ public class FishingEventHandler {
             FishRarity.ETERNAL, "1 in 1,000,000"
     );
 
-    @SubscribeEvent
-    public static void onItemFished(ItemFishedEvent event) {
-        NonNullList<ItemStack> drops = event.getDrops();
-        Player player = event.getEntity();
+    public static FishRarity currentFishRarity = null;
+
+    public static FishRarity determineFishRarity() {
+        return FishRarity.values()[RANDOM.nextInt(FishRarity.values().length)];
+    }
+
+    private static void awardLootInternal(Player player, ResourceKey<LootTable> lootTableKey, Consumer<ItemStack> postProcessor) {
         Level level = player.level();
         ItemStack fishingRod = player.getMainHandItem();
+        if (!(fishingRod.getItem() instanceof CustomFishingRodItem) || !(level instanceof ServerLevel serverLevel)) return;
 
-        if (!(fishingRod.getItem() instanceof CustomFishingRodItem)) {
-            return;
+        MinecraftServer server = serverLevel.getServer();
+        Holder<LootTable> lootTableHolder = server.reloadableRegistries().lookup()
+                .get(Registries.LOOT_TABLE, lootTableKey)
+                .orElseThrow(() -> new IllegalStateException("Missing loot table: " + lootTableKey.location()));
+        LootTable lootTable = lootTableHolder.value();
+
+        LootParams params = new LootParams.Builder(serverLevel)
+                .withLuck(player.getLuck())
+                .withParameter(LootContextParams.THIS_ENTITY, player)
+                .withParameter(LootContextParams.TOOL, fishingRod)
+                .withParameter(LootContextParams.ORIGIN, player.position())
+                .create(LootContextParamSets.FISHING);
+
+        for (ItemStack item : lootTable.getRandomItems(params)) {
+            postProcessor.accept(item);
+            if (!player.addItem(item)) player.drop(item, false);
         }
+    }
 
-        boolean fishCaught = false;
+    public static void awardLoot(ServerPlayer serverPlayer) {
+        FishRarity rarity = (currentFishRarity != null) ? currentFishRarity : determineFishRarity();
+        currentFishRarity = null;
 
-        for (ItemStack itemStack : drops) {
-            if (isFish(itemStack)) {
-                fishCaught = true;
-                FishRarity rarity = determineFishRarity();
-                applyFishRarityToItem(itemStack, rarity);
+        awardLootInternal(serverPlayer, BuiltInLootTables.FISHING_FISH, item -> {
+            if (isFish(item)) {
+                applyFishRarityToItem(item, rarity);
 
-                String article = startsWithVowel(rarity.getDisplayName()) ? "an" : "a";
-                String fishName = rarity.getDisplayName() + " " + getFishName(itemStack);
-                Component message = Component.literal("You caught " + article + " " + fishName + "!")
-                        .withStyle(rarity.getColor());
+                FishingStats stats = FishingStatsCapability.get(serverPlayer);
+                stats.addFish(rarity);
 
-                if (!level.isClientSide && BROADCAST_RARITIES.contains(rarity)) {
-                    broadcastMessage(level, player, fishName, rarity);
-                    playSuccessEffects(level, player);
+                int xpGained = getXpForRarity(rarity);
+                stats.addFishingXp(xpGained, serverPlayer); // ✅ Now passes serverPlayer to send the level-up message
+
+                if (BROADCAST_RARITIES.contains(rarity)) {
+                    broadcastMessage(serverPlayer.level(), serverPlayer, getFishName(item), rarity);
+                    playSuccessEffects(serverPlayer.level(), serverPlayer);
                 } else {
-                    player.sendSystemMessage(message);
+                    String message = "You caught " + getIndefiniteArticle(rarity) + " " + rarity.getDisplayName() + " " + getFishName(item) + "!";
+                    serverPlayer.sendSystemMessage(Component.literal(message).withStyle(rarity.getColor()));
                 }
+
             }
-        }
+        });
+    }
 
+    private static int getXpForRarity(FishRarity rarity) {
+        return switch (rarity) {
+            case COMMON -> 10;
+            case UNCOMMON -> 20;
+            case RARE -> 50;
+            case EPIC -> 100;
+            case EXOTIC -> 250;
+            case LEGENDARY -> 500;
+            case TRANSCENDENT -> 1000;
+            case MYTHICAL -> 2000;
+            case DIVINE -> 4000;
+            case CELESTIAL -> 8000;
+            case ETERNAL -> 16000;
+        };
+    }
 
+    public static void awardJunk(Player player) {
+        awardLootInternal(player, BuiltInLootTables.FISHING_JUNK, item -> {});
     }
 
     private static boolean isFish(ItemStack item) {
         return item.is(Items.COD) || item.is(Items.SALMON) || item.is(Items.TROPICAL_FISH) || item.is(Items.PUFFERFISH);
     }
 
-    private static FishRarity determineFishRarity() {
-        FishRarity[] rarities = FishRarity.values();
-        return rarities[RANDOM.nextInt(rarities.length)];
-
-        /*
-        // Original rarity percentages:
-        float roll = RANDOM.nextFloat();
-        if (roll < 0.55) return FishRarity.COMMON;
-        if (roll < 0.85) return FishRarity.UNCOMMON;
-        if (roll < 0.975) return FishRarity.RARE;
-        if (roll < 0.9975) return FishRarity.EPIC;
-        if (roll < 0.9996) return FishRarity.EXOTIC;
-        if (roll < 0.99984) return FishRarity.LEGENDARY;
-        if (roll < 0.99992) return FishRarity.TRANSCENDENT;
-        if (roll < 0.99996) return FishRarity.MYTHICAL;
-        if (roll < 0.99999) return FishRarity.DIVINE;
-        if (roll < 0.999996) return FishRarity.CELESTIAL;
-        return FishRarity.ETERNAL;
-        */
-    }
-
     private static void applyFishRarityToItem(ItemStack item, FishRarity rarity) {
         item.set(FISH_RARITY.get(), rarity.name());
-
-        Component displayName = Component.literal(rarity.getDisplayName() + " " + getFishName(item))
-                .withStyle(style -> style.withColor(rarity.getColor()).withItalic(false));
-
-        item.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, displayName);
+        item.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME,
+                Component.literal(rarity.getDisplayName() + " " + getFishName(item))
+                        .withStyle(style -> style.withColor(rarity.getColor()).withItalic(false))
+        );
     }
 
     private static String getFishName(ItemStack item) {
-        if (item.is(Items.COD)) return "Cod";
-        if (item.is(Items.SALMON)) return "Salmon";
-        if (item.is(Items.TROPICAL_FISH)) return "Tropical Fish";
-        if (item.is(Items.PUFFERFISH)) return "Pufferfish";
-        return "Fish";
-    }
-
-    private static boolean startsWithVowel(String word) {
-        return word.matches("(?i)^[AEIOU].*");
+        return item.is(Items.COD) ? "Cod" :
+                item.is(Items.SALMON) ? "Salmon" :
+                        item.is(Items.TROPICAL_FISH) ? "Tropical Fish" :
+                                item.is(Items.PUFFERFISH) ? "Pufferfish" : "Fish";
     }
 
     private static void broadcastMessage(Level level, Player player, String fishName, FishRarity rarity) {
-        MinecraftServer server = ((ServerLevel) level).getServer();
-        String odds = FISH_RARITY_ODDS.getOrDefault(rarity, "Unknown Odds");
-        Component broadcastMessage = Component.literal(player.getName().getString() + " caught a " + fishName + "! (" + odds + ")")
-                .withStyle(rarity.getColor());
+        String message = player.getName().getString() + " caught " + getIndefiniteArticle(rarity) + " " + rarity.getDisplayName() + " " + fishName + "!";
 
-        server.getPlayerList().broadcastSystemMessage(broadcastMessage, false);
+        if (FISH_RARITY_ODDS.containsKey(rarity)) {
+            message += " (" + FISH_RARITY_ODDS.get(rarity) + ")";
+            MinecraftServer server = ((ServerLevel) level).getServer();
+            server.getPlayerList().broadcastSystemMessage(Component.literal(message).withStyle(rarity.getColor()), false);
+        }
+    }
+
+    private static String getIndefiniteArticle(FishRarity rarity) {
+        return "AEIOU".indexOf(rarity.getDisplayName().charAt(0)) != -1 ? "an" : "a";
     }
 
     private static void playSuccessEffects(Level level, Player player) {
         if (level instanceof ServerLevel serverLevel) {
-            serverLevel.playSound(null, player.blockPosition(), SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, player.getSoundSource(), 1.0F, 1.0F);
+            player.playSound(SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, 1.0F, 1.0F);
         }
     }
 
@@ -160,14 +181,5 @@ public class FishingEventHandler {
         public ChatFormatting getColor() {
             return color;
         }
-    }
-
-    public static void awardLoot(Player player) {
-        System.out.println("you won!");
-
-    }
-
-    public static void awardJunk(Player player) {
-        System.out.println("you lost!");
     }
 }

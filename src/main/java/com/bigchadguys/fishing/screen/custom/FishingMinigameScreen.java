@@ -68,7 +68,11 @@ public class FishingMinigameScreen extends AbstractContainerScreen<FishingMiniga
     public FishingMinigameScreen(FishingMinigameMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
         this.rodTier = menu.getRodTier();
-        FishingEventHandler.FishRarity fishFishRarity = determineFishRarity();
+
+        FishingEventHandler.currentFishRarity = FishingEventHandler.determineFishRarity();
+        FishingEventHandler.FishRarity fishFishRarity = FishingEventHandler.currentFishRarity;
+        System.out.println("Minigame fish rarity: " + fishFishRarity);
+
         float difficultyMultiplier = FishingMinigameUtil.getDifficultyMultiplier(fishFishRarity);
         int fullWidth = FishingMinigameUtil.getHardcodedFishAtlasWidth(rodTier);
         this.fishWidth = fullWidth / 3;
@@ -82,6 +86,7 @@ public class FishingMinigameScreen extends AbstractContainerScreen<FishingMiniga
         titleLabelY = 10000;
         logic = new FishingMinigameLogic(rodTier, fishWidth, difficultyMultiplier, true);
     }
+
 
     private void updateLogic() {
         long now = System.nanoTime();
@@ -247,10 +252,5 @@ public class FishingMinigameScreen extends AbstractContainerScreen<FishingMiniga
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
         logic.isButtonHeld = false;
         return super.mouseReleased(mouseX, mouseY, button);
-    }
-
-    private FishingEventHandler.FishRarity determineFishRarity() {
-        FishingEventHandler.FishRarity[] rarities = FishingEventHandler.FishRarity.values();
-        return rarities[new Random().nextInt(rarities.length)];
     }
 }

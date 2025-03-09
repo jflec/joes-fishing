@@ -17,7 +17,6 @@ public class ModBlockLootTableProvider extends BlockLootSubProvider {
 
     @Override
     protected void generate() {
-
         dropSelf(ModBlocks.FISH_TRAP.get());
     }
 

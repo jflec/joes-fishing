@@ -16,7 +16,6 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.Random;
 
-
 public class CustomFishingBobberEntity extends FishingHook {
     private boolean minigameTriggered = false;
     private final int rodTier;
@@ -26,16 +25,14 @@ public class CustomFishingBobberEntity extends FishingHook {
     public CustomFishingBobberEntity(Player player, Level level, int luck, int lureSpeed, int rodTier) {
         super(player, level, luck, lureSpeed);
         this.rodTier = rodTier;
-        this.triggerTicks = new Random().nextInt(40, 81);
+        this.triggerTicks = new Random().nextInt(20, 41);
     }
 
     private boolean isOpenWaterEnvironment() {
         Level lvl = level();
         BlockPos center = blockPosition();
-        FluidState centerFluid = lvl.getFluidState(center);
-        if (!centerFluid.is(FluidTags.WATER) || !centerFluid.isSource()) {
-            return false;
-        }
+        if (!lvl.getFluidState(center).is(FluidTags.WATER)) return false;
+
         for (int dx = -2; dx <= 2; dx++) {
             for (int dy = 0; dy < 4; dy++) {
                 for (int dz = -2; dz <= 2; dz++) {
@@ -43,14 +40,10 @@ public class CustomFishingBobberEntity extends FishingHook {
                     BlockState state = lvl.getBlockState(pos);
                     if (dy == 0) {
                         FluidState fs = state.getFluidState();
-                        if (!fs.is(FluidTags.WATER) || !fs.isSource() || !state.getCollisionShape(lvl, pos).isEmpty()) {
-                            return false;
-                        }
-                    } else {
-                        if (!(state.isAir() || state.is(Blocks.LILY_PAD) || state.is(Blocks.BUBBLE_COLUMN) ||
-                                (state.getFluidState().is(FluidTags.WATER) && state.getFluidState().isSource() && state.getCollisionShape(lvl, pos).isEmpty()))) {
-                            return false;
-                        }
+                        if (!fs.is(FluidTags.WATER) || !fs.isSource() || !state.getCollisionShape(lvl, pos).isEmpty()) return false;
+                    } else if (!(state.isAir() || state.is(Blocks.LILY_PAD) || state.is(Blocks.BUBBLE_COLUMN) ||
+                            (state.getFluidState().is(FluidTags.WATER) && state.getFluidState().isSource() && state.getCollisionShape(lvl, pos).isEmpty()))) {
+                        return false;
                     }
                 }
             }
@@ -61,17 +54,12 @@ public class CustomFishingBobberEntity extends FishingHook {
     @Override
     public void tick() {
         super.tick();
-        Level lvl = level();
-        if (!lvl.isClientSide()) {
-            if (getId() != -1) {
-                BobberTracker.currentBobberId = getId();
-            }
-            BlockPos pos = blockPosition();
-            boolean inWater = lvl.getFluidState(pos).is(FluidTags.WATER);
-            ticksInWater = inWater ? ticksInWater + 1 : 0;
+        if (!level().isClientSide()) {
+            if (getId() != -1) BobberTracker.currentBobberId = getId();
+
+            ticksInWater = level().getFluidState(blockPosition()).is(FluidTags.WATER) ? ticksInWater + 1 : 0;
             if (!minigameTriggered && ticksInWater >= triggerTicks && isOpenWaterEnvironment()) {
-                Player owner = getPlayerOwner();
-                if (owner instanceof ServerPlayer serverPlayer) {
+                if (getPlayerOwner() instanceof ServerPlayer serverPlayer) {
                     PacketDistributor.sendToPlayer(serverPlayer, new RodTierData(rodTier));
                     serverPlayer.openMenu(new FishingMinigameMenuProvider());
                     minigameTriggered = true;
